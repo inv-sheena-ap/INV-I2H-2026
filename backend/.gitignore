@@ -1,0 +1,26 @@
+# Local env
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+
+# SQLite (project uses MySQL only)
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploads: ignore binary images so repo stays small; add product_*.jpg via Gemini
+uploads/*.jpg
+uploads/*.jpeg
+uploads/*.png
+uploads/*.webp
+!uploads/.gitkeep
+
+# Logs
+*.log
