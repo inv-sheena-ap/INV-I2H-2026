@@ -15,12 +15,5 @@ venv/
 *.sqlite
 *.sqlite3
 
-# Uploads: ignore binary images so repo stays small; add product_*.jpg via Gemini
-uploads/*.jpg
-uploads/*.jpeg
-uploads/*.png
-uploads/*.webp
-!uploads/.gitkeep
-
 # Logs
 *.log

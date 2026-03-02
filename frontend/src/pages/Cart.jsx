@@ -34,6 +34,12 @@ export default function Cart() {
     localStorage.setItem('cart', JSON.stringify(next));
   };
 
+  const removeItem = (index) => {
+    const next = cart.filter((_, i) => i !== index);
+    setCart(next);
+    localStorage.setItem('cart', JSON.stringify(next));
+  };
+
   const total = Math.round(cart.reduce((sum, i) => sum + (i.price * (i.quantity || 1)), 0) * 100) / 100;
 
   const placeOrder = async () => {
@@ -81,6 +87,7 @@ export default function Cart() {
                   <TableCell>Price</TableCell>
                   <TableCell>Quantity</TableCell>
                   <TableCell>Subtotal</TableCell>
+                  <TableCell align="right">Action</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -94,6 +101,11 @@ export default function Cart() {
                       <Button size="small" onClick={() => updateQty(i, 1)}>+</Button>
                     </TableCell>
                     <TableCell>${(item.price * (item.quantity || 1)).toFixed(2)}</TableCell>
+                    <TableCell align="right">
+                      <Button size="small" color="error" variant="outlined" onClick={() => removeItem(i)}>
+                        Delete
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
