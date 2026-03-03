@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Box, Typography, Paper, Button, CircularProgress } from '@mui/material';
-import { get, getUploadUrl } from '../api/client';
+import { Box, Typography, Paper, Button, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { get, patch, getUploadUrl } from '../api/client';
 
 const PLACEHOLDER_IMG = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="64" height="64"%3E%3Crect fill="%23eee" width="64" height="64"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-size="10"%3E?%3C/text%3E%3C/svg%3E';
 
@@ -12,14 +12,20 @@ export default function OrderDetail() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const minDelayMs = 1200; // BUG 5: keep loading visible long enough to notice the missing spinner
+    const start = Date.now();
     get(`/orders/${id}`)
       .then((res) => res.ok ? res.json() : null)
       .then(setOrder)
       .catch(() => setOrder(null))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        const elapsed = Date.now() - start;
+        setTimeout(() => setLoading(false), Math.max(0, minDelayMs - elapsed));
+      });
   }, [id]);
 
-  if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>;
+  // BUG 5: no loading state
+  if (loading) return <Box sx={{ maxWidth: 600, mx: 'auto', p: 2 }} />;
   if (!order) return (
     <Box sx={{ maxWidth: 600, mx: 'auto', p: 2, textAlign: 'center' }}>
       <Typography variant="h6" color="text.secondary" gutterBottom>Order not found</Typography>
@@ -28,11 +34,35 @@ export default function OrderDetail() {
     </Box>
   );
 
+  // BUG 26: status can be changed for any order (no ownership check in API)
+  const handleStatusChange = async (newStatus) => {
+    try {
+      const res = await patch(`/orders/${id}/status?status=${encodeURIComponent(newStatus)}`);
+      if (res.ok) {
+        const updated = await res.json();
+        setOrder(updated);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   return (
     <Box sx={{ maxWidth: 600, mx: 'auto', p: 2 }}>
       <Paper sx={{ p: 3 }}>
         <Typography variant="h5">Order #{order.id}</Typography>
-        <Typography>Status: {order.status}</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', mt: 1 }}>
+          <Typography>Status: {order.status}</Typography>
+          <FormControl size="small" sx={{ minWidth: 140 }}>
+            <InputLabel>Update status</InputLabel>
+            <Select label="Update status" value={order.status} onChange={(e) => handleStatusChange(e.target.value)}>
+              <MenuItem value="pending">Pending</MenuItem>
+              <MenuItem value="shipped">Shipped</MenuItem>
+              <MenuItem value="delivered">Delivered</MenuItem>
+              <MenuItem value="cancelled">Cancelled</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
         <Typography>Total: ${order.total}</Typography>
         <Typography sx={{ whiteSpace: 'pre-wrap' }}>Shipping: {order.shipping_address_text}</Typography>
         {order.expected_delivery_date && (
@@ -60,7 +90,8 @@ export default function OrderDetail() {
             ))}
           </Box>
         )}
-        <Button sx={{ mt: 2 }} onClick={() => navigate('/orders')}>My orders</Button>
+        {/* BUG 32: button goes to products instead of orders */}
+        <Button sx={{ mt: 2 }} onClick={() => navigate('/products')}>My orders</Button>
       </Paper>
     </Box>
   );

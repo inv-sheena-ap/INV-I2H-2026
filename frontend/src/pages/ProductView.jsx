@@ -44,20 +44,21 @@ export default function ProductView() {
           />
         </Box>
         <Typography variant="h4" sx={{ typography: { xs: 'h5', sm: 'h4' } }}>{product.name}</Typography>
-        <Typography variant="body1" sx={{ mt: 1 }}>{product.description}</Typography>
+        <Typography sx={{ mt: 1 }}>{product.description}</Typography>
         <Typography variant="h6" sx={{ mt: 2 }}>${product.price}</Typography>
         <Typography variant="body2">Stock: {product.stock}</Typography>
         <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2 }}>
+          {/* BUG 2 & 3: allow 0 and allow > stock */}
           <TextField
             type="number"
             label="Quantity"
             value={qty}
-            onChange={(e) => setQty(Math.max(1, Math.min(product.stock, Number(e.target.value) || 1)))}
-            inputProps={{ min: 1, max: product.stock }}
+            onChange={(e) => setQty(Math.max(0, Number(e.target.value) || 0))}
+            inputProps={{ min: 0 }}
             size="small"
             sx={{ width: { xs: '100%', sm: 120 } }}
           />
-          <Button variant="contained" onClick={addToCart} disabled={product.stock < 1 || qty < 1 || qty > product.stock} sx={{ flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
+          <Button variant="contained" onClick={addToCart} disabled={product.stock < 1} sx={{ flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
             Add to cart
           </Button>
         </Box>

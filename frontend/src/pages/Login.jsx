@@ -48,7 +48,8 @@ export default function Login() {
           <TextField fullWidth label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} margin="normal" required />
           <Button type="submit" fullWidth variant="contained" sx={{ mt: 2 }} disabled={loading}>Login</Button>
         </form>
-        <Typography sx={{ mt: 2 }}>Don't have an account? <Link to="/signup">Sign up</Link></Typography>
+        {/* BUG 10: swapped label - says Login instead of Sign up */}
+        <Typography sx={{ mt: 2 }}>Don't have an account? <Link to="/signup">Login</Link></Typography>
       </Paper>
     </Box>
   );

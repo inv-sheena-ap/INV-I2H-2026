@@ -15,6 +15,7 @@ import Cart from './pages/Cart';
 import Addresses from './pages/Addresses';
 import OrderList from './pages/OrderList';
 import OrderDetail from './pages/OrderDetail';
+import Users from './pages/Users';
 
 const theme = createTheme({
   palette: { mode: 'light', primary: { main: '#1976d2' } },
@@ -43,6 +44,7 @@ export default function App() {
             <Route path="/addresses" element={<Layout><ProtectedRoute><Addresses /></ProtectedRoute></Layout>} />
             <Route path="/orders" element={<Layout><ProtectedRoute><OrderList /></ProtectedRoute></Layout>} />
             <Route path="/orders/:id" element={<Layout><ProtectedRoute><OrderDetail /></ProtectedRoute></Layout>} />
+            <Route path="/users" element={<Layout><Users /></Layout>} />
             <Route path="*" element={<Navigate to="/products" replace />} />
           </Routes>
         </BrowserRouter>

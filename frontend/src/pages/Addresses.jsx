@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Box, Typography, Button, TextField, Paper, List, ListItem, ListItemText, ListItemSecondaryAction, CircularProgress, Grid } from '@mui/material';
 import { get, post, del } from '../api/client';
 
-const pincodeRegex = /^\d{6}$/;
+const pincodeRegex = /^\d{5,6}$/;  // BUG 21: accept 5 or 6 digits
 const phoneRegex = /^\d{10,20}$/;
 
 export default function Addresses() {
@@ -113,8 +113,9 @@ export default function Addresses() {
                 primary={a.label}
                 secondary={
                   <>
-                    {a.line1}
-                    {a.line2 && `, ${a.line2}`}
+                    {/* BUG 22: XSS – address line1/line2 rendered as HTML (e.g. <script>alert('XSS')</script>) */}
+                    <Box component="span" dangerouslySetInnerHTML={{ __html: a.line1 || '' }} />
+                    {a.line2 != null && a.line2 !== '' && <>{', '}<Box component="span" dangerouslySetInnerHTML={{ __html: a.line2 }} /></>}
                     <br />
                     {a.city}, {a.state} – {a.pincode}
                     {a.phone && <> · {a.phone}</>}

@@ -95,16 +95,14 @@ def update_address(
     return _address_to_response(addr)
 
 
+# BUG 29: delete any address by ID (no ownership check) for bug hunt
 @router.delete("/{address_id}", status_code=204)
 def delete_address(
     address_id: int,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    addr = db.query(models.UserAddress).filter(
-        models.UserAddress.id == address_id,
-        models.UserAddress.user_id == current_user.id,
-    ).first()
+    addr = db.query(models.UserAddress).filter(models.UserAddress.id == address_id).first()
     if not addr:
         raise HTTPException(status_code=404, detail="Address not found")
     db.delete(addr)

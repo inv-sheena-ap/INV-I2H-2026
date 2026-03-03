@@ -21,36 +21,40 @@ export default function Cart() {
     if (isAuthenticated) {
       get('/addresses').then((res) => res.json()).then((list) => {
         setAddresses(list);
-        if (list.length && !selectedAddressId) setSelectedAddressId(list.find((a) => a.is_default)?.id ?? list[0].id);
+        // BUG 6: do not auto-select address so "Place order" can be enabled with no selection
+        // if (list.length && !selectedAddressId) setSelectedAddressId(list.find((a) => a.is_default)?.id ?? list[0].id);
       }).catch(console.error);
     }
   }, [isAuthenticated]);
 
+  // BUG 13: allow quantity 0 (don't remove row)
   const updateQty = (index, delta) => {
     const next = [...cart];
     next[index].quantity = Math.max(0, (next[index].quantity || 1) + delta);
-    if (next[index].quantity === 0) next.splice(index, 1);
     setCart(next);
     localStorage.setItem('cart', JSON.stringify(next));
   };
 
+  // BUG 14: remove wrong row (next index instead of clicked)
   const removeItem = (index) => {
-    const next = cart.filter((_, i) => i !== index);
+    const wrongIndex = cart.length > 1 ? (index + 1) % cart.length : index;
+    const next = cart.filter((_, i) => i !== wrongIndex);
     setCart(next);
     localStorage.setItem('cart', JSON.stringify(next));
   };
 
-  const total = Math.round(cart.reduce((sum, i) => sum + (i.price * (i.quantity || 1)), 0) * 100) / 100;
+  // BUG 1: do not round for display (shows float noise)
+  const total = cart.reduce((sum, i) => sum + (i.price * (i.quantity || 1)), 0);
 
   const placeOrder = async () => {
     if (!isAuthenticated) return navigate('/login');
-    if (!selectedAddressId) return alert('Select a delivery address');
+    // BUG 6 & 30: don't require address selected; BUG 17: no error message on fail
     if (addresses.length === 0) return alert('Add an address first from the Addresses page');
     setPlacing(true);
     try {
       const body = {
         items: cart.map((i) => ({ product_id: i.product_id, quantity: i.quantity || 1 })),
-        address_id: selectedAddressId,
+        address_id: selectedAddressId ?? addresses[0]?.id,
         payment_method: 'cod',
       };
       const res = await post('/orders', body);
@@ -60,7 +64,7 @@ export default function Cart() {
       setCart([]);
       navigate(`/orders/${data.id}`);
     } catch (err) {
-      alert(err.message || 'Order failed');
+      // BUG 17: do not show error to user
     } finally {
       setPlacing(false);
     }
@@ -76,8 +80,10 @@ export default function Cart() {
             Add items from the product list to place an order.
           </Typography>
           <Button variant="contained" onClick={() => navigate('/products')}>Browse products</Button>
+          {/* BUG 7: show place order section even when empty (below) */}
         </Box>
-      ) : (
+      ) : null}
+      {true ? (
         <>
           <Paper sx={{ overflow: 'auto', width: '100%' }}>
             <Table size="small" sx={{ minWidth: 320 }}>
@@ -91,8 +97,9 @@ export default function Cart() {
                 </TableRow>
               </TableHead>
               <TableBody>
+                {/* BUG 14: use index as key so delete can remove wrong row */}
                 {cart.map((item, i) => (
-                  <TableRow key={item.product_id ? `${item.product_id}-${i}` : i}>
+                  <TableRow key={i}>
                     <TableCell>{item.name}</TableCell>
                     <TableCell>${item.price}</TableCell>
                     <TableCell>
@@ -111,7 +118,7 @@ export default function Cart() {
               </TableBody>
             </Table>
           </Paper>
-          <Typography variant="h6" sx={{ mt: 2 }}>Total: ${total.toFixed(2)}</Typography>
+          <Typography variant="h6" sx={{ mt: 2 }}>Total: ${total}</Typography>
           <FormControl component="fieldset" sx={{ mt: 2, display: 'block' }}>
             <FormLabel component="legend">Delivery address</FormLabel>
             {addresses.length === 0 ? (
@@ -136,11 +143,12 @@ export default function Cart() {
               </RadioGroup>
             )}
           </FormControl>
+          {/* BUG 6: button enabled even when no address selected (missing !selectedAddressId in disabled) */}
           <Button variant="contained" sx={{ mt: 2 }} onClick={placeOrder} disabled={placing || addresses.length === 0}>
             {placing ? 'Processing...' : 'Place order (COD)'}
           </Button>
         </>
-      )}
+      ) : null}
       <Button sx={{ mt: 2 }} onClick={() => navigate('/products')}>Continue shopping</Button>
     </Box>
   );

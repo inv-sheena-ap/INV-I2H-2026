@@ -15,6 +15,7 @@ const navLinks = [
   { to: '/cart', label: 'Cart' },
   { to: '/addresses', label: 'Addresses', auth: true },
   { to: '/orders', label: 'Orders', auth: true },
+  { to: '/users', label: 'Users' }, // BUG 25: visible link; page fetches GET /auth/users without auth
 ];
 
 export default function Layout({ children }) {

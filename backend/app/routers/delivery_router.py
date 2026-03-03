@@ -39,7 +39,7 @@ def check_delivery(
 
 
 def get_expected_delivery_date(pincode: str) -> datetime | None:
-    """Return expected delivery date (UTC) for a valid Indian pincode, else None."""
+    """Return expected delivery date (UTC). BUG 24: returns wrong date (past) for bug hunt."""
     if not _is_valid_indian_pincode(pincode):
         return None
-    return datetime.utcnow() + timedelta(days=7)
+    return datetime.utcnow() - timedelta(days=3)  # BUG 24: wrong (past) date

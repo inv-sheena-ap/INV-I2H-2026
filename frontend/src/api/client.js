@@ -32,7 +32,11 @@ export function getUploadUrl(imagePath) {
 
 async function request(path, options = {}) {
   const token = getStoredToken();
-  const url = path.startsWith('http') ? path : `${API_BASE}${path}`;
+  let url = path.startsWith('http') ? path : `${API_BASE}${path}`;
+  // BUG 16: also send token in URL for GET so it appears in Network tab
+  if (token && (options.method || 'GET') === 'GET') {
+    url += (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
+  }
   const headers = { ...options.headers };
   if (token) headers.Authorization = `Bearer ${token}`;
   if (!(options.body instanceof FormData)) headers['Content-Type'] = 'application/json';

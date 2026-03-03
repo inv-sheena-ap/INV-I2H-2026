@@ -1,5 +1,5 @@
 """Orders API: create order (with address, COD), list orders. All require auth."""
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
@@ -74,8 +74,9 @@ def create_order(
         qty = item.quantity
         if qty <= 0:
             raise HTTPException(status_code=400, detail="Quantity must be positive")
-        if product.stock < qty:
-            raise HTTPException(status_code=400, detail=f"Insufficient stock for {product.name}")
+        # BUG 28: skip stock check for bug hunt (allows negative stock)
+        # if product.stock < qty:
+        #     raise HTTPException(status_code=400, detail=f"Insufficient stock for {product.name}")
         total += product.price * qty
         order_items.append({
             "product_id": product.id,
@@ -119,6 +120,30 @@ def create_order(
     return _order_to_response(order)
 
 
+# BUG 26: update any order status without ownership check (for bug hunt)
+@router.patch("/{order_id}/status", response_model=schemas.OrderResponse)
+def update_order_status(
+    order_id: int,
+    status: str = Query(..., description="New status"),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    order = db.query(models.Order).filter(models.Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    order.status = status
+    db.commit()
+    db.refresh(order)
+    order = (
+        db.query(models.Order)
+        .options(joinedload(models.Order.items).joinedload(models.OrderItem.product))
+        .filter(models.Order.id == order_id)
+        .first()
+    )
+    return _order_to_response(order)
+
+
+# BUG 27: list all orders (no user filter) for bug hunt
 @router.get("", response_model=list[schemas.OrderResponse])
 def list_orders(
     db: Session = Depends(get_db),
@@ -127,7 +152,6 @@ def list_orders(
     orders = (
         db.query(models.Order)
         .options(joinedload(models.Order.items).joinedload(models.OrderItem.product))
-        .filter(models.Order.user_id == current_user.id)
         .order_by(models.Order.created_at.desc())
         .all()
     )
@@ -148,6 +172,7 @@ def get_order(
     )
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    if order.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to view this order")
+    # BUG 15 (IDOR): intentionally skip ownership check for bug hunt
+    # if order.user_id != current_user.id:
+    #     raise HTTPException(status_code=403, detail="Not authorized to view this order")
     return _order_to_response(order)

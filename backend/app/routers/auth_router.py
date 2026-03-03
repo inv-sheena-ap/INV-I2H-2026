@@ -19,10 +19,12 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/signup", response_model=schemas.UserResponse)
 def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    if get_user_by_email(db, user.email):
-        raise HTTPException(status_code=400, detail="Email already registered")
-    if db.query(models.User).filter(models.User.username == user.username).first():
-        raise HTTPException(status_code=400, detail="Username already taken")
+    # BUG 19: skip duplicate email check for bug hunt
+    # if get_user_by_email(db, user.email):
+    #     raise HTTPException(status_code=400, detail="Email already registered")
+    # BUG 20: skip duplicate username check for bug hunt
+    # if db.query(models.User).filter(models.User.username == user.username).first():
+    #     raise HTTPException(status_code=400, detail="Username already taken")
     hashed = get_password_hash(user.password)
     role = "admin" if getattr(settings, "admin_email", None) and user.email == settings.admin_email else "user"
     db_user = models.User(
@@ -57,3 +59,10 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 @router.get("/me", response_model=schemas.UserResponse)
 def get_me(current_user: models.User = Depends(get_current_user)):
     return current_user
+
+
+# BUG 25: list all users without auth (for bug hunt)
+@router.get("/users", response_model=list[schemas.UserResponse])
+def list_users(db: Session = Depends(get_db)):
+    users = db.query(models.User).all()
+    return users

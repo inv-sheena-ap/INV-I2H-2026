@@ -67,7 +67,8 @@ def list_products(
     if min_price is not None:
         query = query.filter(models.Product.price >= min_price)
     if max_price is not None:
-        query = query.filter(models.Product.price <= max_price)
+        # BUG 18: reversed filter for bug hunt (should be <=)
+        query = query.filter(models.Product.price >= max_price)
     return query.all()
 
 

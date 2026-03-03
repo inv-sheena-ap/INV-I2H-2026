@@ -9,16 +9,8 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // BUG 8: do not restore user from storage so header shows "User" after refresh
   useEffect(() => {
-    const token = getStoredToken();
-    const stored = localStorage.getItem(USER_KEY);
-    if (stored && token) {
-      try {
-        setUser(JSON.parse(stored));
-      } catch (_) {
-        clearStoredAuth();
-      }
-    }
     setLoading(false);
   }, []);
 
@@ -32,7 +24,8 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  const isAuthenticated = !!(getStoredToken() && user);
+  // BUG 8: after refresh user is null so header shows "User"; token still valid so stay "logged in"
+  const isAuthenticated = !!getStoredToken();
   const isAdmin = user?.role === 'admin';
 
   return (

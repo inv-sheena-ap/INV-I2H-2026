@@ -11,23 +11,15 @@ import re
 # ---- User ----
 class UserCreate(BaseModel):
     email: EmailStr
-    password: str = Field(..., min_length=8)
+    password: str = Field(..., min_length=1)  # BUG 34: no min_length=8 or strength for bug hunt
     full_name: str = Field(..., min_length=1, max_length=255)
     username: str = Field(..., min_length=2, max_length=50, pattern=r"^[a-zA-Z0-9_-]+$")
     phone: Optional[str] = Field(None, max_length=20)
 
-    @field_validator("password")
-    @classmethod
-    def password_strength(cls, v: str) -> str:
-        if len(v) < 8:
-            raise ValueError("Password must be at least 8 characters")
-        if not re.search(r"[A-Z]", v):
-            raise ValueError("Password must contain at least one uppercase letter")
-        if not re.search(r"[a-z]", v):
-            raise ValueError("Password must contain at least one lowercase letter")
-        if not re.search(r"\d", v):
-            raise ValueError("Password must contain at least one digit")
-        return v
+    # BUG 34: password strength validator removed for bug hunt
+    # @field_validator("password")
+    # @classmethod
+    # def password_strength(cls, v: str) -> str: ...
 
 
 class UserResponse(BaseModel):
@@ -61,7 +53,7 @@ class AddressCreate(BaseModel):
     line2: Optional[str] = Field(None, max_length=255)
     city: str = Field(..., min_length=1, max_length=100)
     state: str = Field(..., min_length=1, max_length=100)
-    pincode: str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$")
+    pincode: str = Field(..., min_length=5, max_length=6, pattern=r"^\d{5,6}$")  # BUG 21
     phone: Optional[str] = Field(None, min_length=10, max_length=20, pattern=r"^\d{10,20}$")
     is_default: bool = False
 

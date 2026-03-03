@@ -64,15 +64,16 @@ export default function Signup() {
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <form onSubmit={handleSubmit}>
           <TextField fullWidth name="email" label="Email" type="email" value={form.email} onChange={handleChange} margin="normal" required />
-          <TextField fullWidth name="password" label="Password" type="password" value={form.password} onChange={handleChange} margin="normal" required />
-          {/* BUG: No min length or strength hint for password */}
+          {/* BUG 9: password visible (type="text" instead of "password") */}
+          <TextField fullWidth name="password" label="Password" type="text" value={form.password} onChange={handleChange} margin="normal" required />
           <TextField fullWidth name="full_name" label="Full name" value={form.full_name} onChange={handleChange} margin="normal" required />
           <TextField fullWidth name="username" label="Username" value={form.username} onChange={handleChange} margin="normal" required />
           <TextField fullWidth name="address" label="Address" value={form.address} onChange={handleChange} margin="normal" />
           <TextField fullWidth name="phone" label="Phone" value={form.phone} onChange={handleChange} margin="normal" />
           <Button type="submit" fullWidth variant="contained" sx={{ mt: 2 }} disabled={loading}>Sign up</Button>
         </form>
-        <Typography sx={{ mt: 2 }}>Already have an account? <Link to="/login">Login</Link></Typography>
+        {/* BUG 10: swapped label - says Sign up instead of Login */}
+        <Typography sx={{ mt: 2 }}>Already have an account? <Link to="/login">Sign up</Link></Typography>
       </Paper>
     </Box>
   );
