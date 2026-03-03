@@ -6,10 +6,8 @@ from fastapi.security import OAuth2PasswordRequestForm
 from ..database import get_db
 from .. import models, schemas
 from ..auth import (
-    get_password_hash,
     create_access_token,
     get_user_by_email,
-    verify_password,
     get_current_user,
 )
 from ..config import settings
@@ -25,15 +23,15 @@ def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
     # BUG 20: skip duplicate username check for bug hunt
     # if db.query(models.User).filter(models.User.username == user.username).first():
     #     raise HTTPException(status_code=400, detail="Username already taken")
-    hashed = get_password_hash(user.password)
-    role = "admin" if getattr(settings, "admin_email", None) and user.email == settings.admin_email else "user"
+    # BUG: Critical - store plain text password in DB (no hashing); returned via hashed_password in API
+    plain_password = user.password
     db_user = models.User(
         email=user.email,
         username=user.username,
-        hashed_password=hashed,
+        hashed_password=plain_password,
         full_name=user.full_name,
         phone=user.phone,
-        role=role,
+        role="user",
     )
     db.add(db_user)
     db.commit()
@@ -44,7 +42,8 @@ def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
 @router.post("/login", response_model=schemas.Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = get_user_by_email(db, form_data.username)
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    # BUG: Plain text password comparison (no hashing; password stored in DB as plain text)
+    if not user or form_data.password != user.hashed_password:
         raise HTTPException(status_code=401, detail="Incorrect email or password")
     if not user.is_active:
         raise HTTPException(status_code=401, detail="User disabled")
@@ -66,3 +65,18 @@ def get_me(current_user: models.User = Depends(get_current_user)):
 def list_users(db: Session = Depends(get_db)):
     users = db.query(models.User).all()
     return users
+
+
+# BUG: Critical - any authenticated user can delete any user (no authz check)
+@router.delete("/users/{user_id}", status_code=204)
+def delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    db.delete(user)
+    db.commit()
+    return None

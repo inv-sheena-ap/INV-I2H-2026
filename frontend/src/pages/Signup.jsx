@@ -18,6 +18,7 @@ export default function Signup() {
     setError('');
     setLoading(true);
     try {
+      // BUG: No validation for empty required fields (full_name, username) - only password validated
       if (form.password.length < 8) {
         throw new Error('Password must be at least 8 characters');
       }
@@ -63,7 +64,8 @@ export default function Signup() {
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Email and username must be unique.</Typography>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <form onSubmit={handleSubmit}>
-          <TextField fullWidth name="email" label="Email" type="email" value={form.email} onChange={handleChange} margin="normal" required />
+          {/* BUG: Missing email validation - type="text" allows invalid email; no format check */}
+          <TextField fullWidth name="email" label="Email" type="text" value={form.email} onChange={handleChange} margin="normal" required />
           {/* BUG 9: password visible (type="text" instead of "password") */}
           <TextField fullWidth name="password" label="Password" type="text" value={form.password} onChange={handleChange} margin="normal" required />
           <TextField fullWidth name="full_name" label="Full name" value={form.full_name} onChange={handleChange} margin="normal" required />

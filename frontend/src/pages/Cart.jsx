@@ -52,10 +52,12 @@ export default function Cart() {
     if (addresses.length === 0) return alert('Add an address first from the Addresses page');
     setPlacing(true);
     try {
+      // BUG: Sending total from client; API trusts it (can be manipulated in DevTools/API)
       const body = {
         items: cart.map((i) => ({ product_id: i.product_id, quantity: i.quantity || 1 })),
         address_id: selectedAddressId ?? addresses[0]?.id,
         payment_method: 'cod',
+        total: total,
       };
       const res = await post('/orders', body);
       const data = await res.json();

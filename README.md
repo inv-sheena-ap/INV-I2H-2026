@@ -37,7 +37,7 @@ bug-project/
 │   │   ├── database.py       # MySQL engine, session, get_db
 │   │   ├── models.py         # User, Product, Order, OrderItem, UserAddress
 │   │   ├── schemas.py        # Pydantic request/response models
-│   │   ├── auth.py           # JWT, password hash, get_current_user/admin
+│   │   ├── auth.py           # JWT, get_current_user
 │   │   └── routers/
 │   │       ├── auth_router.py
 │   │       ├── products_router.py
@@ -45,7 +45,7 @@ bug-project/
 │   │       ├── addresses_router.py
 │   │       └── delivery_router.py
 │   ├── uploads/              # Product images (product_1.jpg … product_20.jpg)
-│   ├── seed_data.py          # Seed 20 products + admin user
+│   ├── seed_data.py          # Seed 20 products + default user
 │   ├── wait_for_mysql.py     # Used by Docker to wait for MySQL
 │   ├── requirements.txt
 │   └── Dockerfile
@@ -78,7 +78,7 @@ bug-project/
    ```bash
    docker compose up --build
    ```
-2. Backend waits for MySQL, runs `seed_data.py` (creates tables, 20 products, admin user), then starts the API.
+2. Backend waits for MySQL, runs `seed_data.py` (creates tables, 20 products, default user), then starts the API.
 3. Open:
    - **App:** http://localhost:5173  
    - **API docs:** http://localhost:8000/docs  
@@ -154,10 +154,12 @@ If a product has no image file, the UI shows a placeholder.
 
 ---
 
-## Default Credentials (after seed)
+## Default credentials (after seed)
 
 - **Email:** admin@shop.com  
 - **Password:** admin123  
+
+(Seed creates one default user with these credentials; there is no admin role—all users have the same permissions.)  
 
 ---
 

@@ -1,7 +1,6 @@
 """
-Authentication: JWT encode/decode, password hashing, and dependencies.
+Authentication: JWT encode/decode and dependencies.
 - get_current_user: requires valid Bearer token, returns User or 401.
-- get_current_admin: requires get_current_user and role admin, else 403.
 """
 from datetime import datetime, timedelta
 from typing import Optional
@@ -67,14 +66,3 @@ async def get_current_user(
         return user
     except (JWTError, ValueError):
         raise credentials_exception
-
-
-async def get_current_admin(
-    current_user: models.User = Depends(get_current_user),
-) -> models.User:
-    if current_user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required",
-        )
-    return current_user

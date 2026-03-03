@@ -85,12 +85,18 @@ def create_order(
         })
         product.stock -= qty
 
+    # BUG: Critical - use client-provided total if sent (allows price manipulation)
+    if order_data.total is not None:
+        order_total = round(float(order_data.total), 2)
+    else:
+        order_total = round(total, 2)
+
     shipping_text = _format_address(addr)
     expected_delivery = get_expected_delivery_date(addr.pincode)
 
     order = models.Order(
         user_id=current_user.id,
-        total=round(total, 2),
+        total=order_total,
         status="pending",
         payment_method="cod",
         shipping_address_text=shipping_text,

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Box, Card, CardContent, CardActions, Button, Typography, Grid, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { Box, Card, CardContent, CardActions, Button, Typography, Grid, FormControl, InputLabel, Select, MenuItem, TextField } from '@mui/material';
 import { get, getUploadUrl } from '../api/client';
 
 const PLACEHOLDER_IMG = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23eee" width="400" height="300"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-size="14"%3ENo image%3C/text%3E%3C/svg%3E';
@@ -11,6 +11,8 @@ export default function ProductList() {
   const [loading, setLoading] = useState(true);
   const search = searchParams.get('search') || '';
   const maxPrice = searchParams.get('max_price') || '';
+  const [legacySearch, setLegacySearch] = useState('');
+  const [legacyResults, setLegacyResults] = useState(null);
 
   useEffect(() => {
     // BUG 11: use wrong param name so backend ignores search
@@ -41,6 +43,17 @@ export default function ProductList() {
     setSearchParams(next);
   };
 
+  const runLegacySearch = () => {
+    setLegacyResults(null);
+    if (!legacySearch.trim()) return;
+    get(`/products/search_legacy?q=${encodeURIComponent(legacySearch)}`)
+      .then((res) => res.json())
+      .then(setLegacyResults)
+      .catch(() => setLegacyResults([]));
+  };
+
+  const displayProducts = legacyResults !== null ? legacyResults : products;
+
   return (
     <Box sx={{ p: 2, maxWidth: 1200, mx: 'auto' }}>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2, mb: 2 }}>
@@ -55,17 +68,34 @@ export default function ProductList() {
             <MenuItem value="100">Under 100</MenuItem>
           </Select>
         </FormControl>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <TextField
+            size="small"
+            placeholder="Legacy search"
+            value={legacySearch}
+            onChange={(e) => setLegacySearch(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && runLegacySearch()}
+            sx={{ minWidth: 180 }}
+          />
+          <Button variant="outlined" size="small" onClick={runLegacySearch}>Search</Button>
+        </Box>
       </Box>
       <Grid container spacing={2}>
         {/* BUG 31: when search returns 0, show no message */}
-        {products.length === 0 && !search ? (
+        {displayProducts.length === 0 && !search && legacyResults === null ? (
           <Grid item xs={12}>
             <Box sx={{ textAlign: 'center', py: 6, px: 2 }}>
               <Typography variant="h6" color="text.secondary" gutterBottom>The catalog is empty.</Typography>
             </Box>
           </Grid>
         ) : null}
-        {products.length > 0 ? products.map((p) => (
+        {displayProducts.length > 0 ? displayProducts.map((p, index) => {
+          const list = displayProducts;
+          // BUG: Every second product (odd index) links to the next product's detail page
+          const linkId = index % 2 === 1 && list.length > 1
+            ? list[(index + 1) % list.length].id
+            : p.id;
+          return (
           <Grid item xs={12} sm={6} md={4} lg={3} key={p.id}>
             <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               <Box sx={{ position: 'relative', width: '100%', aspectRatio: '4/3', overflow: 'hidden', bgcolor: 'grey.100' }}>
@@ -89,11 +119,12 @@ export default function ProductList() {
                 <Typography variant="caption" color={p.stock > 0 ? 'text.secondary' : 'error'}>{p.stock > 0 ? 'In stock' : 'Out of stock'}</Typography>
               </CardContent>
               <CardActions>
-                <Button component={Link} to={`/products/${p.id}`} size="small">View</Button>
+                <Button component={Link} to={`/products/${linkId}`} size="small">View</Button>
               </CardActions>
             </Card>
           </Grid>
-        )) : null}
+          );
+        }) : null}
       </Grid>
     </Box>
   );

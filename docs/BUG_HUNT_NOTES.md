@@ -10,7 +10,7 @@ This document lists **30 intentional bugs** (10 Easy, 10 Medium, 10 Hard) for th
 
 - Run the app via Docker: `docker compose up --build` (see README).
 - Give participants: **App URL** (e.g. http://localhost:5173), and optionally **API docs** (http://localhost:8000/docs) if you want them to try API calls.
-- Default login: **admin@shop.com** / **admin123** (after seed).
+- Default login (after seed): **admin@shop.com** / **admin123** (default user; no admin role in this app).
 
 ---
 
@@ -262,7 +262,7 @@ This document lists **30 intentional bugs** (10 Easy, 10 Medium, 10 Hard) for th
 
 **How to fix:** In the order detail endpoint, after loading the order, check `order.user_id == current_user.id`. If not, return 403 (or 404 to avoid leaking existence). Never return another user’s order.
 
-**Best practice:** Always enforce ownership or role-based access on every resource access (OWASP: Broken Access Control).
+**Best practice:** Always enforce ownership (or explicit authorization) on every resource access (OWASP: Broken Access Control).
 
 ---
 
@@ -414,15 +414,15 @@ This document lists **30 intentional bugs** (10 Easy, 10 Medium, 10 Hard) for th
 **Difficulty:** Hard | **Category:** Security  
 
 **How to find:** In the **top navigation**, click **"Users"** (or open `/users` in the address bar). You can do this without logging in, or while logged in as any user.  
-**What to see:** A list of all registered users (e.g. emails, usernames) is displayed. The page calls GET /auth/users, which does not require authentication or admin role.
+**What to see:** A list of all registered users (e.g. emails, usernames) is displayed. The page calls GET /auth/users, which does not require authentication.
 
-**Why it matters:** **Broken Access Control.** Sensitive user data (emails, names) is exposed. Should require at least login and ideally admin role.
+**Why it matters:** **Broken Access Control.** Sensitive user data (emails, names) is exposed. Should require authentication at minimum.
 
-**What you learn:** Every endpoint that returns sensitive data must require authentication (and often authorization, e.g. admin). Apply `Depends(get_current_user)` and for list-all, `Depends(get_current_admin)`.
+**What you learn:** Every endpoint that returns sensitive data must require authentication (and often authorization). Apply `Depends(get_current_user)` at minimum; restrict list-all to authorized callers if needed.
 
-**How to fix:** Protect GET /auth/users: add `Depends(get_current_admin)` (or remove the endpoint). Return 401/403 when not allowed.
+**How to fix:** Protect GET /auth/users: add `Depends(get_current_user)` so only authenticated users can call it (or remove the endpoint). Return 401 when not authenticated.
 
-**Best practice:** Default to "deny"; explicitly allow access per role/resource (OWASP: Broken Access Control).
+**Best practice:** Default to "deny"; explicitly allow access per resource/ownership (OWASP: Broken Access Control).
 
 ---
 
@@ -434,11 +434,11 @@ This document lists **30 intentional bugs** (10 Easy, 10 Medium, 10 Hard) for th
 
 **Why it matters:** Attacker can cancel or alter others’ orders. Again, missing ownership/authorization check.
 
-**What you learn:** Mutations (update/delete) must verify the resource belongs to the current user (or that the user has the right role, e.g. admin).
+**What you learn:** Mutations (update/delete) must verify the resource belongs to the current user before allowing changes.
 
-**How to fix:** In the status-update endpoint, load the order and check `order.user_id == current_user.id` (or allow only admin). If not, return 403. Optionally restrict which statuses a user can set (e.g. only admin can set "shipped").
+**How to fix:** In the status-update endpoint, load the order and check `order.user_id == current_user.id`. If not, return 403. Optionally restrict which statuses a user can set (e.g. only the owner can cancel).
 
-**Best practice:** Every mutation: load resource, check ownership/role, then update.
+**Best practice:** Every mutation: load resource, check ownership, then update.
 
 ---
 
@@ -450,7 +450,7 @@ This document lists **30 intentional bugs** (10 Easy, 10 Medium, 10 Hard) for th
 
 **Why it matters:** List endpoint returns data for all users instead of filtering by current user. Massive data leak and privacy violation.
 
-**What you learn:** List/query endpoints must always filter by the current user (or by permitted scope). Never return "all" unless the caller is explicitly authorized (e.g. admin).
+**What you learn:** List/query endpoints must always filter by the current user (or by permitted scope). Never return "all" unless the caller is explicitly authorized.
 
 **How to fix:** In the list-orders endpoint, add `.filter(Order.user_id == current_user.id)` (or equivalent). Remove any logic that returns all orders without this filter.
 
@@ -486,7 +486,7 @@ This document lists **30 intentional bugs** (10 Easy, 10 Medium, 10 Hard) for th
 
 **How to fix:** In delete endpoint, load address with `filter(Address.id == id, Address.user_id == current_user.id)`. If not found, return 404. Then delete. Never delete by id alone.
 
-**Best practice:** All mutations: filter by resource id and owner (or role); then act.
+**Best practice:** All mutations: filter by resource id and owner; then act.
 
 ---
 
@@ -511,7 +511,161 @@ This document lists **30 intentional bugs** (10 Easy, 10 Medium, 10 Hard) for th
 - **BUG 30** — Place order without selecting address (similar to BUG 6): enforce `selectedAddressId` in UI and backend.  
 - **BUG 31** — No empty state for search: when results are 0, show "No products found. Try different keywords."  
 - **BUG 32** — On the **Order detail page** (when viewing a single order, e.g. `/orders/1`), the **"My orders"** button at the bottom incorrectly navigates to the **Products** page instead of the Orders list. Fix: change the button to `navigate('/orders')`.  
-- **BUG 34** — Backend accepts weak password: add server-side validation (min length, complexity) and return 400 with clear message.
+- **BUG 34** — Backend accepts weak password: add server-side validation (min length, complexity) and return 400 with clear message.  
+- **BUG 40–44** — See **Validation and navigation bugs** section below.
+
+---
+
+## Critical bugs (additional — high impact)
+
+### BUG 35 — SQL injection in product search  
+**Difficulty:** Hard | **Category:** Security (Critical)  
+
+**How to find:** Go to **Products**. Use the **"Legacy search"** input. Enter: `' OR '1'='1` and click Search.  
+**What to see:** All products are returned (the injected condition makes the WHERE always true). Alternatively try `'; DROP TABLE products; --` to see error or data loss in a vulnerable DB.
+
+**Why it matters:** **SQL injection** allows execution of arbitrary SQL. Attacker can read all data, modify or delete tables, or bypass authentication. OWASP Top 10, CWE-89.
+
+**What you learn:** Never concatenate user input into SQL. Use parameterized queries (ORM or bound parameters). The backend uses raw SQL with f-strings: `text(f"SELECT ... WHERE name LIKE '%{q}%'")` — this is the vulnerability.
+
+**How to fix:** Remove the legacy search or rewrite it using the ORM: `query.filter(Product.name.ilike(f"%{q}%"))` with the ORM escaping the value. Never use `text(f"... {user_input} ...")`.
+
+**Best practice:** Use ORM or parameterized queries only; never build SQL with string formatting from user input.
+
+---
+
+### BUG 36 — Order total accepted from client (price manipulation)  
+**Difficulty:** Hard | **Category:** Security (Critical)  
+
+**How to find:** Add items to cart (e.g. total should be 50). Open DevTools → Network. Click "Place order (COD)". Before sending, edit the request body (e.g. via "Edit and Resend" or a proxy) and set `"total": 0.01`. Send the request.  
+**What to see:** Order is created with total 0.01 instead of the real cart total. The API trusts the client-provided `total` field.
+
+**Why it matters:** **Business logic bypass.** Attacker pays almost nothing for any order. Revenue loss and fraud. The server must always compute the total from items and prices; never trust client-supplied amounts.
+
+**What you learn:** All monetary values (totals, prices, discounts) must be computed server-side from authoritative data. Never accept `total` or `amount` from the client for orders or payments.
+
+**How to fix:** Remove `total` from the OrderCreate schema. In create_order, always use the computed `total` from the loop over items. Reject any request that sends a `total` field, or ignore it.
+
+**Best practice:** Server is the single source of truth for prices and totals; client only sends item IDs and quantities.
+
+---
+
+### BUG 37 — Passwords stored in plain text and returned in API response  
+**Difficulty:** Hard | **Category:** Security (Critical)  
+
+**How to find:** Sign up or log in. Then call **Login**, **GET /auth/me**, or **GET /auth/users** and inspect the JSON response (e.g. in Network tab or API docs).  
+**What to see:** (1) Passwords are **stored in the database in plain text** (no hashing). (2) The response includes `hashed_password` — which now contains the **actual plain-text password** (not a hash). Visible in login response, /auth/me, and /auth/users. Anyone with API or DB access can see and use user passwords.
+
+**Why it matters:** Passwords must be hashed (e.g. bcrypt) before storage and must never be returned in API responses. Plain-text storage and exposure enable credential theft, replay, and compliance violations (e.g. GDPR). OWASP: sensitive data exposure; CWE-256, CWE-522.
+
+**What you learn:** Always hash passwords with a secure algorithm (e.g. bcrypt) before storing. Never include password or hash in API response schemas. Compare login input to the stored hash using `verify()`, not plain string comparison.
+
+**How to fix:** (1) In signup, store `get_password_hash(user.password)` instead of the raw password. (2) In login, use `verify_password(form_data.password, user.hashed_password)`. (3) Remove `hashed_password` from UserResponse so it is never returned. (4) Optionally run a one-time migration to hash existing plain passwords in the DB.
+
+**Best practice:** Hash passwords at rest; never return password or hash in API responses; use constant-time comparison for any server-side password check.
+
+---
+
+### BUG 38 — *(Removed)*  
+**Note:** This slot previously described "Signup accepts role (privilege escalation)". The project no longer has an admin role or role-based APIs; all users have the same permissions. BUG 38 is not used in the current bug hunt.
+
+---
+
+### BUG 39 — Any user can delete any user  
+**Difficulty:** Hard | **Category:** Security (Critical)  
+
+**How to find:** Log in as **User A**. Go to **Users** (nav). You will see the list of all users (including User B). Click **Delete** next to another user (User B).  
+**What to see:** User B is deleted. The API DELETE /auth/users/{id} does not check that the current user is deleting their own account; any authenticated user can delete any other user.
+
+**Why it matters:** **Broken Access Control.** Any authenticated user can delete any other user. Denial of service and data loss.
+
+**What you learn:** Destructive actions must be authorized: typically users may delete only themselves (with confirmation), or a dedicated permission is required. Check ownership before delete.
+
+**How to fix:** In the delete-user endpoint, allow only self-deletion: check `user_id == current_user.id` and return 403 otherwise. Optionally require a confirmation flag or separate "delete my account" endpoint.
+
+**Best practice:** Every destructive endpoint: verify the caller has permission (e.g. is the owner); never allow any authenticated user to delete any resource by ID.
+
+---
+
+## Validation and navigation bugs
+
+### BUG 40 — Missing email format validation (Sign up & Login)  
+**Difficulty:** Medium | **Category:** Validation  
+
+**How to find:** On **Sign up**, enter an invalid email (e.g. `abc`, `a@`, `user@`, `notanemail`) in the Email field. Submit. On **Login**, same: use a non-email string.  
+**What to see:** Sign up accepts the value and creates an account (backend uses `str` instead of `EmailStr`; frontend uses `type="text"` so no browser validation). Login allows submitting invalid format (same).
+
+**Why it matters:** Invalid emails break password reset, communications, and uniqueness. Email should be validated on both client (UX) and server (security) with a proper format (e.g. RFC 5322 or a simple `.*@.*\..*`).
+
+**What you learn:** Use `EmailStr` in Pydantic (or a strict regex) on the backend. On the frontend use `type="email"` and/or a pattern/validator so invalid formats are rejected before submit.
+
+**How to fix:** Backend: change `email: str` back to `email: EmailStr` in UserCreate. Frontend: use `type="email"` on the email field for both Sign up and Login; optionally add a regex or library validator.
+
+**Best practice:** Validate format for email, phone, pincode, etc. on client (early feedback) and server (authoritative).
+
+---
+
+### BUG 41 — Missing required-field validation (full_name can be empty)  
+**Difficulty:** Easy | **Category:** Validation  
+
+**How to find:** On **Sign up**, leave **Full name** empty (or type only spaces). Fill other required fields with valid values. Submit.  
+**What to see:** Sign up succeeds and the account is created with an empty or blank full name. Backend allows `min_length=0` for full_name.
+
+**Why it matters:** Required fields must be enforced so that downstream features (display name, emails, support) have valid data. Empty names look unprofessional and can break UI or reports.
+
+**What you learn:** Every required field should have `min_length >= 1` (or equivalent) on the server and non-empty check on the client before submit.
+
+**How to fix:** Backend: change `full_name` to `Field(..., min_length=1, max_length=255)`. Frontend: add a check before submit (e.g. `if (!form.full_name?.trim()) setError('Full name is required')`) or rely on HTML `required` and ensure the field is not bypassed.
+
+**Best practice:** Define required fields in the schema and enforce them in API and UI.
+
+---
+
+### BUG 42 — Optional field (Address line 2) incorrectly required  
+**Difficulty:** Medium | **Category:** Validation  
+
+**How to find:** Go to **Addresses** → Add new address. Fill all required fields (Label, Line 1, City, State, Pincode). Leave **Address line 2 (optional)** empty. Click Add address.  
+**What to see:** Validation error "Address line 2 is required". The form blocks submit even though the label says "(optional)".
+
+**Why it matters:** Optional fields must not be required. Forcing users to fill optional fields worsens UX and can confuse users who don’t have a line 2.
+
+**What you learn:** Only validate optional fields when they have a value (e.g. format/length). Do not add "required" or non-empty checks for fields that are documented as optional.
+
+**How to fix:** In the address form validation, remove the check that sets `errors.line2` when line2 is empty. Only validate line2 format/length when `form.line2` is non-empty.
+
+**Best practice:** Keep required vs optional consistent between UI labels, client validation, and API schema.
+
+---
+
+### BUG 43 — Optional field (Phone) incorrectly required by API  
+**Difficulty:** Medium | **Category:** Validation  
+
+**How to find:** Go to **Addresses** → Add new address. Fill required fields and **Address line 2** (to pass frontend validation). Leave **Phone** empty (it is not marked required in the UI). Click Add address.  
+**What to see:** Request fails with a validation error (e.g. 422) indicating that phone is required or must have at least 10 characters. The API schema requires `phone` even though the field is optional in the UI.
+
+**Why it matters:** API and UI must agree on which fields are optional. Requiring an optional field in the API forces the client to send a dummy value or blocks valid user flows (e.g. address without phone).
+
+**What you learn:** In the API schema, mark optional fields as `Optional[str] = None` (or equivalent). Do not use `Field(..., min_length=...)` for optional fields without a default of None.
+
+**How to fix:** Backend: change `phone` in AddressCreate back to `Optional[str] = Field(None, min_length=10, max_length=20, pattern=...)` so that missing or null phone is allowed.
+
+**Best practice:** Document and implement optional fields consistently; only require fields that are truly mandatory.
+
+---
+
+### BUG 44 — Clicking "View" on some products opens a different product’s detail page  
+**Difficulty:** Medium | **Category:** Navigation / UI  
+
+**How to find:** Go to **Products**. Note the name of the **2nd product** in the list (e.g. "USB-C Cable"). Click **View** on that product.  
+**What to see:** The detail page shows a different product (e.g. the 3rd product in the list). Every second product in the list (2nd, 4th, 6th, …) links to the next product’s ID instead of its own.
+
+**Why it matters:** Wrong links break trust and cause confusion. Users think they are viewing one item but see another; they may add the wrong item to cart or make wrong decisions.
+
+**What you learn:** When building links in a list, use the current item’s identifier (e.g. `p.id`) for the link target. Do not use index-based logic that maps to a different item (e.g. `list[index + 1].id`).
+
+**How to fix:** In the product list, ensure the View button/link always uses the current product’s id: `to={\`/products/${p.id}\`}`. Remove any logic that uses `(index + 1)` or similar to compute the link ID.
+
+**Best practice:** Link targets must always correspond to the item the user clicked; verify with manual testing.
 
 ---
 
@@ -552,7 +706,7 @@ This document lists **30 intentional bugs** (10 Easy, 10 Medium, 10 Hard) for th
 
 ---
 
-**Total: 30 bugs for scoring** — **10 Easy**, **10 Medium**, **10 Hard**
+**Total: 30 bugs for scoring** — **10 Easy**, **10 Medium**, **10 Hard** (excluding BUG 38, which is removed; project has no admin role.)
 
 Use the "Why it matters", "What you learn", and "How to fix" sections when debriefing so the bug hunt teaches secure coding, validation, and UX practices.
 
@@ -568,3 +722,13 @@ Use the "Why it matters", "What you learn", and "How to fix" sections when debri
 - **BUG 25:** Nav bar — click "Users" (or open `/users`); full user list without auth.
 - **BUG 26:** Order detail page — after opening any order (e.g. another user's via IDOR), use "Update status" dropdown.
 - **BUG 32:** Order detail page — the "My orders" button at the bottom goes to Products instead of Orders list.
+- **BUG 35 (Critical):** Products page — "Legacy search" input; try `' OR '1'='1` for SQL injection.
+- **BUG 36 (Critical):** Cart → Place order — edit request body in DevTools (set `total` to 0.01) to manipulate order amount.
+- **BUG 37 (Critical):** Login or GET /auth/me or /auth/users — response includes `hashed_password` (now contains plain-text password); passwords are stored in DB without hashing.
+- **BUG 38:** *(Removed — no admin/role in project.)*
+- **BUG 39 (Critical):** Users page — when logged in, click Delete next to another user to delete them.
+- **BUG 40 (Validation):** Sign up / Login — use invalid email (e.g. `abc`, `a@`); accepted or submittable.
+- **BUG 41 (Validation):** Sign up — leave Full name empty; account is created.
+- **BUG 42 (Validation):** Addresses — leave Address line 2 empty; form shows "Address line 2 is required".
+- **BUG 43 (Validation):** Addresses — leave Phone empty and add address; API returns validation error (phone required).
+- **BUG 44 (Navigation):** Products — click View on the 2nd (or 4th, 6th…) product; wrong product detail opens.

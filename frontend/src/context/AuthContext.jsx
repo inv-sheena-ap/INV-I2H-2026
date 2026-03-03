@@ -26,10 +26,9 @@ export function AuthProvider({ children }) {
 
   // BUG 8: after refresh user is null so header shows "User"; token still valid so stay "logged in"
   const isAuthenticated = !!getStoredToken();
-  const isAdmin = user?.role === 'admin';
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isAuthenticated, isAdmin, setUser }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, isAuthenticated, setUser }}>
       {children}
     </AuthContext.Provider>
   );

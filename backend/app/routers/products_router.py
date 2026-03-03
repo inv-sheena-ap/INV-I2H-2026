@@ -1,13 +1,14 @@
-"""Products API: list/search (authenticated user), CRUD + image (admin only)."""
+"""Products API: list/search and CRUD + image (authenticated user)."""
 import secrets
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from ..config import settings
 from ..database import get_db
 from .. import models, schemas
-from ..auth import get_current_user, get_current_admin
+from ..auth import get_current_user
 
 router = APIRouter(prefix="/products", tags=["products"])
 
@@ -82,6 +83,21 @@ def list_categories(
     return [r[0] for r in rows if r[0]]
 
 
+# BUG: Critical - SQL injection via unsanitized user input in raw SQL
+@router.get("/search_legacy", response_model=list[schemas.ProductResponse])
+def search_products_legacy(
+    q: str = Query("", description="Search term (legacy)"),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Legacy search: uses raw SQL. Do not use in production."""
+    # NEVER concatenate user input into SQL - vulnerable to SQL injection
+    stmt = text(f"SELECT id, name, description, price, stock, image_path, category, created_at FROM products WHERE name LIKE '%{q}%' OR description LIKE '%{q}%'")
+    result = db.execute(stmt)
+    rows = result.fetchall()
+    return [schemas.ProductResponse.model_validate(dict(row._mapping)) for row in rows]
+
+
 @router.get("/{product_id}", response_model=schemas.ProductResponse)
 def get_product(
     product_id: int,
@@ -94,12 +110,12 @@ def get_product(
     return product
 
 
-# ---- Admin only ----
+# ---- Create/update/delete (authenticated user) ----
 @router.post("", response_model=schemas.ProductResponse, status_code=201)
 def create_product(
     product: schemas.ProductCreate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_admin),
+    current_user: models.User = Depends(get_current_user),
 ):
     db_product = models.Product(
         name=product.name,
@@ -119,7 +135,7 @@ def update_product(
     product_id: int,
     product: schemas.ProductUpdate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_admin),
+    current_user: models.User = Depends(get_current_user),
 ):
     db_product = db.query(models.Product).filter(models.Product.id == product_id).first()
     if not db_product:
@@ -137,7 +153,7 @@ def update_stock(
     product_id: int,
     stock: int = Query(..., ge=0),
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_admin),
+    current_user: models.User = Depends(get_current_user),
 ):
     db_product = db.query(models.Product).filter(models.Product.id == product_id).first()
     if not db_product:
@@ -152,7 +168,7 @@ async def upload_product_image(
     product_id: int,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_admin),
+    current_user: models.User = Depends(get_current_user),
 ):
     """Upload image for product. Replaces existing. Allowed: JPEG, PNG, WebP; max 5MB."""
     from ..config import UPLOAD_DIR

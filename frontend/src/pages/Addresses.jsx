@@ -25,6 +25,8 @@ export default function Addresses() {
     if (!form.pincode?.trim()) next.pincode = 'Pincode required (6 digits)';
     else if (!pincodeRegex.test(form.pincode)) next.pincode = 'Must be 6 digits';
     if (form.phone && !phoneRegex.test(form.phone.replace(/\s/g, ''))) next.phone = '10–20 digits';
+    // BUG: Optional field (line2) incorrectly required - blocks submit if line2 is empty
+    if (!form.line2?.trim()) next.line2 = 'Address line 2 is required';
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -84,7 +86,7 @@ export default function Addresses() {
               <TextField fullWidth label="Address line 1" value={form.line1} onChange={(e) => setForm((f) => ({ ...f, line1: e.target.value }))} error={!!errors.line1} helperText={errors.line1} required />
             </Grid>
             <Grid item xs={12}>
-              <TextField fullWidth label="Address line 2 (optional)" value={form.line2} onChange={(e) => setForm((f) => ({ ...f, line2: e.target.value }))} />
+              <TextField fullWidth label="Address line 2 (optional)" value={form.line2} onChange={(e) => setForm((f) => ({ ...f, line2: e.target.value }))} error={!!errors.line2} helperText={errors.line2} />
             </Grid>
             <Grid item xs={12} sm={4}>
               <TextField fullWidth label="City" value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} error={!!errors.city} helperText={errors.city} required />

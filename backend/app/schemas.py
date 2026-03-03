@@ -10,9 +10,11 @@ import re
 
 # ---- User ----
 class UserCreate(BaseModel):
-    email: EmailStr
+    # BUG: Missing email validation - use str so invalid formats (e.g. "abc", "a@") are accepted
+    email: str = Field(..., min_length=1, max_length=255)
     password: str = Field(..., min_length=1)  # BUG 34: no min_length=8 or strength for bug hunt
-    full_name: str = Field(..., min_length=1, max_length=255)
+    # BUG: Missing required-field validation - allow empty full_name
+    full_name: str = Field(..., min_length=0, max_length=255)
     username: str = Field(..., min_length=2, max_length=50, pattern=r"^[a-zA-Z0-9_-]+$")
     phone: Optional[str] = Field(None, max_length=20)
 
@@ -30,6 +32,8 @@ class UserResponse(BaseModel):
     role: str
     is_active: bool
     created_at: datetime
+    # BUG: Critical - password hash exposed in API response (login, /me, /users)
+    hashed_password: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -54,7 +58,8 @@ class AddressCreate(BaseModel):
     city: str = Field(..., min_length=1, max_length=100)
     state: str = Field(..., min_length=1, max_length=100)
     pincode: str = Field(..., min_length=5, max_length=6, pattern=r"^\d{5,6}$")  # BUG 21
-    phone: Optional[str] = Field(None, min_length=10, max_length=20, pattern=r"^\d{10,20}$")
+    # BUG: Optional field incorrectly required - phone should be optional but API requires it
+    phone: str = Field(..., min_length=10, max_length=20, pattern=r"^\d{10,20}$")
     is_default: bool = False
 
 
@@ -129,6 +134,8 @@ class OrderCreate(BaseModel):
     items: List[OrderItemCreate]
     address_id: int = Field(..., gt=0)
     payment_method: str = "cod"
+    # BUG: Critical - API accepts client-provided total (allows price manipulation)
+    total: Optional[float] = None
 
 
 class OrderItemResponse(BaseModel):

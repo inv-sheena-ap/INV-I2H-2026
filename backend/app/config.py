@@ -21,9 +21,6 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: str = "*"
 
-    # Optional: email that gets admin role on signup
-    admin_email: str | None = None
-
     # Product image uploads
     upload_dir: str = "uploads"
     max_upload_size_mb: int = 5

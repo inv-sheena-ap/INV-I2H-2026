@@ -15,7 +15,7 @@ docker compose up --build
 ```
 
 - **First run** can take a few minutes (building images, MySQL starting, backend waiting for MySQL then running seed).
-- **Backend** waits for MySQL to accept connections (`wait_for_mysql.py`), then runs `seed_data.py`: creates tables, adds 20 products (with `image_path` set to `product_1.jpg` … `product_20.jpg`), and creates admin user `admin@shop.com` / `admin123`. Place image files in `backend/uploads/` (see **docs/IMAGES_NEEDED.md** for prompts to generate them with Gemini).
+- **Backend** waits for MySQL to accept connections (`wait_for_mysql.py`), then runs `seed_data.py`: creates tables, adds 20 products (with `image_path` set to `product_1.jpg` … `product_20.jpg`), and creates a default user `admin@shop.com` / `admin123`. Place image files in `backend/uploads/` (see **docs/IMAGES_NEEDED.md** for prompts to generate them with Gemini).
 - **Frontend:** http://localhost:5173  
 - **API docs:** http://localhost:8000/docs  
 - **MySQL:** port **3307** on host (mapped from container 3306 to avoid conflict with local MySQL). See below for login.
@@ -42,7 +42,7 @@ docker compose logs -f mysql
 
 ---
 
-## 2. Seed data (add products and admin to DB)
+## 2. Seed data (add products and default user to DB)
 
 Seed runs **automatically** when the backend container starts (see backend `Dockerfile` CMD).
 
@@ -60,7 +60,7 @@ docker compose exec backend python seed_data.py
   ```
   Then run seed again if needed: `docker compose exec backend python seed_data.py`.
 
-**Default admin after seed:** `admin@shop.com` / `admin123`.
+**Default user after seed:** `admin@shop.com` / `admin123`.
 
 ---
 
@@ -132,7 +132,7 @@ To run a single command from the host:
 docker compose exec mysql mysql -u app -papppass ecommerce -e "SHOW TABLES;"
 ```
 
-**Root user** (for admin tasks):
+**Root user** (for MySQL admin tasks):
 
 ```bash
 docker compose exec mysql mysql -u root -prootpass ecommerce -e "SHOW TABLES;"

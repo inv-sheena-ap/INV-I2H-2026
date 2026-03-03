@@ -44,7 +44,8 @@ export default function Login() {
         <Typography variant="h5" gutterBottom>Login</Typography>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <form onSubmit={handleSubmit}>
-          <TextField fullWidth label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} margin="normal" required />
+          {/* BUG: Missing email format validation - type="text" allows invalid email */}
+          <TextField fullWidth label="Email" type="text" value={email} onChange={(e) => setEmail(e.target.value)} margin="normal" required />
           <TextField fullWidth label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} margin="normal" required />
           <Button type="submit" fullWidth variant="contained" sx={{ mt: 2 }} disabled={loading}>Login</Button>
         </form>

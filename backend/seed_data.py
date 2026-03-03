@@ -1,5 +1,5 @@
 """
-Seed the database with sample products and a default admin user.
+Seed the database with sample products and a default user.
 Run once after DB is created. Idempotent: skips if products already exist.
 Product images: save files as product_1.jpg ... product_20.jpg in backend/uploads/
 (see docs/IMAGES_NEEDED.md for prompts to generate images with Gemini).
@@ -9,7 +9,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from app.auth import get_password_hash
 from app.config import settings
 from app.database import SessionLocal, engine
 from app.models import Base, Product, User
@@ -43,7 +42,7 @@ PRODUCTS = [
 
 
 def seed():
-    """Create tables, insert products and admin user if not already present."""
+    """Create tables, insert products and default user if not already present."""
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
@@ -62,15 +61,17 @@ def seed():
                 image_path=image_path,
             )
             db.add(product)
-        admin = User(
+        # BUG: Store plain text password (no hashing) to match auth_router login comparison
+        default_user = User(
             email="admin@shop.com",
             username="admin",
-            hashed_password=get_password_hash("admin123"),
+            hashed_password="admin123",
             full_name="Admin User",
+            role="user",
         )
-        db.add(admin)
+        db.add(default_user)
         db.commit()
-        print("Seed completed. 20 products and admin user added.")
+        print("Seed completed. 20 products and default user (admin@shop.com / admin123) added.")
     finally:
         db.close()
 

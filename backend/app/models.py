@@ -12,7 +12,7 @@ from .database import Base
 
 class UserRole(str, enum.Enum):
     user = "user"
-    admin = "admin"
+    admin = "admin"  # Unused; project has no admin role—all users have same permissions
 
 
 class User(Base):
